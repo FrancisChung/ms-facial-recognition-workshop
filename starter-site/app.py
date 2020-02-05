@@ -105,6 +105,7 @@ def detect():
     messages = []
 
     # TODO: Add code to detect people in picture
+    messages = detect_people(face_client, person_group_id, image.blob)
 
     return render_template("detect.html", messages=messages, image_uri=image.uri)
 
