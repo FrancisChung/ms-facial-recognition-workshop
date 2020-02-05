@@ -80,7 +80,7 @@ def train():
     messages = []
 
     # TODO: Add code to create or update person
-
+    messages = train_person(face_client, person_group_id, name, image.blob)
 
     if not messages:
         messages.append("I don't recognize anyone")
