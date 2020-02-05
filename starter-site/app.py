@@ -161,3 +161,29 @@ def translate_text(lines, target_language, key, region):
 
     except Exception as e:
         return ["Error calling the Translator Text API"]
+
+def train_person(client, person_group_id, name, image):
+    #
+    try:
+        client.person_group.create(person_group_id, name=person_group_id)
+    except:
+        pass
+
+    name = name.lower()
+
+    people = client.person_group_person.list(person_group_id)
+
+    people_with_name = list(filter(lambda p: p.name == name, people))
+
+    if len(people_with_name) > 0:
+        person = people_with_name[0]
+        operation = "Updated"
+    else:
+        person = client.person_group_person.create(person_group_id, name)
+        operation = "Created"
+
+    client.person_group_person.add_face_from_stream(person_group_id, person.person_id, image)
+
+    client.person_group.train(person_group_id)
+
+    return ["{} {}".format(operation, name)]
