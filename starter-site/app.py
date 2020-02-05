@@ -24,6 +24,11 @@ vision_client = ComputerVisionClient(COGSVCS_CLIENTURL, vision_credentials )
 
 
 # Create face_client
+from azure.cognitiveservices.vision.face import FaceClient
+face_credentials = CognitiveServicesCredentials(COGSVCS_KEY)
+face_client = FaceClient(COGSVCS_CLIENTURL, face_credentials)
+
+person_group_id = "reactor"
 
 # Create the application
 app = Flask(__name__)
