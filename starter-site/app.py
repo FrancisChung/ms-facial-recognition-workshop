@@ -3,6 +3,7 @@ from flask import Flask, render_template, request
 
 # Load system variables with dotenv
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Need to create .env containing the following entries from your Azure account #
@@ -20,11 +21,11 @@ from azure.cognitiveservices.vision.computervision import ComputerVisionClient
 from azure.cognitiveservices.vision.computervision.models import ComputerVisionErrorException
 
 vision_credentials = CognitiveServicesCredentials(COGSVCS_KEY)
-vision_client = ComputerVisionClient(COGSVCS_CLIENTURL, vision_credentials )
-
+vision_client = ComputerVisionClient(COGSVCS_CLIENTURL, vision_credentials)
 
 # Create face_client
 from azure.cognitiveservices.vision.face import FaceClient
+
 face_credentials = CognitiveServicesCredentials(COGSVCS_KEY)
 face_client = FaceClient(COGSVCS_CLIENTURL, face_credentials)
 
@@ -33,9 +34,11 @@ person_group_id = "reactor"
 # Create the application
 app = Flask(__name__)
 
+
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
+
 
 @app.route("/translate", methods=["GET", "POST"])
 def translate():
@@ -62,6 +65,7 @@ def translate():
 
     return render_template("translate.html", image_uri=image.uri, target_language=target_language, messages=messages)
 
+
 @app.route("/train", methods=["GET", "POST"])
 def train():
     # Load image or placeholder
@@ -87,6 +91,7 @@ def train():
 
     return render_template("train.html", messages=messages, image_uri=image.uri)
 
+
 @app.route("/detect", methods=["GET", "POST"])
 def detect():
     # Load image or placeholder
@@ -103,6 +108,7 @@ def detect():
 
     return render_template("detect.html", messages=messages, image_uri=image.uri)
 
+
 def get_image(request):
     # Helper class 
     from image import Image
@@ -111,11 +117,12 @@ def get_image(request):
     else:
         return Image()
 
+
 def extract_text_from_image(image, client):
     try:
         result = client.recognize_printed_text_in_stream(image=image)
 
-        lines=[]
+        lines = []
         if len(result.regions) == 0:
             lines.append("Photo contains no text to translate")
 
@@ -129,6 +136,7 @@ def extract_text_from_image(image, client):
     except ComputerVisionErrorException as e:
         return ["Computer Vision API Error: " + e.message]
 
+
 def translate_text(lines, target_language, key, region):
     uri = "https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=" + target_language
 
@@ -138,14 +146,14 @@ def translate_text(lines, target_language, key, region):
         'Content-type': 'application/json'
     }
 
-    input=[]
+    input = []
 
     for line in lines:
-        input.append({ "text": line })
+        input.append({"text": line})
 
     try:
         response = requests.post(uri, headers=headers, json=input)
-        response.raise_for_status() # Raise exception if call failed
+        response.raise_for_status()  # Raise exception if call failed
         results = response.json()
 
         translated_lines = []
@@ -161,6 +169,7 @@ def translate_text(lines, target_language, key, region):
 
     except Exception as e:
         return ["Error calling the Translator Text API"]
+
 
 def train_person(client, person_group_id, name, image):
     #
@@ -187,3 +196,38 @@ def train_person(client, person_group_id, name, image):
     client.person_group.train(person_group_id)
 
     return ["{} {}".format(operation, name)]
+
+
+def detect_people(client, person_group_id, image):
+    # find all faces in the image
+    faces = face_client.face.detect_with_stream(image)
+
+    # Get just the Ids for identification
+    face_ids = list(map((lambda face: face.face_id), faces))
+
+    # Identify the faces
+    identified_faces = face_client.face.identify(face_ids, person_group_id)
+
+    results = []
+
+    # Loop through each identified face
+    for face in identified_faces:
+        # Get all candidates = who might this face be
+        candidates = face.candidates
+
+        if len(candidates) == 0:
+            continue
+
+        # Sort by most likely candidate
+        candidates = sorted(candidates, key=(lambda candidate: candidate.confidence), reverse=True)
+
+        top_candidate = candidates[0]
+
+        person = face_client.person_group_person.get(person_group_id, top_candidate.person_id)
+
+        if top_candidate.confidence > .8:
+            results.append('I see ' + person.name)
+        else:
+            results.append('I think I see ' + person.name)
+
+    return results
